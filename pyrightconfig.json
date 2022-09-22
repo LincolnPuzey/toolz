@@ -1,0 +1,17 @@
+{
+  "include": [
+    "toolz"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/tests"
+  ],
+  "ignore": [
+    "toolz/_version.py"
+  ],
+  "pythonVersion": "3.5",
+  "pythonPlatform": "All",
+  "stubPath": "",
+  "typeCheckingMode": "basic",
+  "reportUnnecessaryTypeIgnoreComment": true
+}
