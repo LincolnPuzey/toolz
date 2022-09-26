@@ -5,6 +5,14 @@ import operator
 from functools import partial
 from itertools import filterfalse, zip_longest
 from collections.abc import Sequence
+from typing import Any, Callable, Optional, Union, cast, overload
+
+from toolz._compatibility import (
+    Collection, Dict, Iterable, Iterator, List, Tuple
+)
+from toolz._types import (
+    T, V, Key, KeyElement, SupportGetItem, SupportsComparisonT, T_Hashable
+)
 from toolz.utils import no_default
 
 
@@ -16,7 +24,7 @@ __all__ = ('remove', 'accumulate', 'groupby', 'merge_sorted', 'interleave',
            'join', 'tail', 'diff', 'topk', 'peek', 'peekn', 'random_sample')
 
 
-def remove(predicate, seq):
+def remove(predicate: Callable[[T], bool], seq: Iterable[T]) -> Iterator[T]:
     """ Return those items of sequence for which predicate(item) is False
 
     >>> def iseven(x):
@@ -27,7 +35,11 @@ def remove(predicate, seq):
     return filterfalse(predicate, seq)
 
 
-def accumulate(binop, seq, initial=no_default):
+def accumulate(
+    binop: Callable[[T, T], T],
+    seq: Iterable[T],
+    initial: T = no_default,
+) -> Iterator[T]:
     """ Repeatedly apply binary function to a sequence, accumulating results
 
     >>> from operator import add, mul
@@ -68,6 +80,24 @@ def accumulate(binop, seq, initial=no_default):
         yield result
 
 
+@overload
+def groupby(key: Callable[[T], Key], seq: Iterable[T]) -> Dict[Key, List[T]]:
+    ...
+
+
+@overload
+def groupby(key: Key, seq: Iterable[T]) -> Dict[Key, List[T]]:
+    ...
+
+
+@overload
+def groupby(
+    key: List[KeyElement],
+    seq: Iterable[T],
+) -> Dict[Tuple[KeyElement], List[T]]:
+    ...
+
+
 def groupby(key, seq):
     """ Group a collection by a key function
 
@@ -104,7 +134,23 @@ def groupby(key, seq):
     return rv
 
 
-def merge_sorted(*seqs, **kwargs):
+@overload
+def merge_sorted(
+    *seqs: Iterable[SupportsComparisonT],
+    key: None = None,
+) -> Iterator[SupportsComparisonT]:
+    ...
+
+
+@overload
+def merge_sorted(
+    *seqs: Iterable[T],
+    key: Callable[[T], SupportsComparisonT]
+) -> Iterator[T]:
+    ...
+
+
+def merge_sorted(*seqs, key=None):
     """ Merge and sort a collection of sorted collections
 
     This works lazily and only keeps one value from each iterable in memory.
@@ -125,7 +171,6 @@ def merge_sorted(*seqs, **kwargs):
     elif len(seqs) == 1:
         return iter(seqs[0])
 
-    key = kwargs.get('key', None)
     if key is None:
         return _merge_sorted_binary(seqs)
     else:
@@ -221,7 +266,7 @@ def _merge_sorted_binary_key(seqs, key):
         yield val1
 
 
-def interleave(seqs):
+def interleave(seqs: Iterable[Iterable[T]]) -> Iterator[T]:
     """ Interleave a sequence of sequences
 
     >>> list(interleave([[1, 2], [3, 4]]))
@@ -243,6 +288,20 @@ def interleave(seqs):
         except StopIteration:
             predicate = partial(operator.is_not, itr)  # pyright: ignore
             iters = itertools.cycle(itertools.takewhile(predicate, iters))
+
+
+@overload
+def unique(
+    seq: Iterable[T_Hashable], key: None = None
+) -> Iterator[T_Hashable]:
+    ...
+
+
+@overload
+def unique(
+    seq: Iterable[T], key: Callable[[T], T_Hashable]
+) -> Iterator[T]:
+    ...
 
 
 def unique(seq, key=None):
@@ -273,7 +332,7 @@ def unique(seq, key=None):
                 yield item
 
 
-def isiterable(x):
+def isiterable(x: Any) -> bool:
     """ Is x iterable?
 
     >>> isiterable([1, 2, 3])
@@ -290,7 +349,7 @@ def isiterable(x):
         return False
 
 
-def isdistinct(seq):
+def isdistinct(seq: Collection[T_Hashable]):
     """ All values in sequence are distinct
 
     >>> isdistinct([1, 2, 3])
@@ -315,7 +374,7 @@ def isdistinct(seq):
         return len(seq) == len(set(seq))
 
 
-def take(n, seq):
+def take(n: int, seq: Iterable[T]) -> Iterator[T]:
     """ The first n elements of a sequence
 
     >>> list(take(2, [10, 20, 30, 40, 50]))
@@ -797,6 +856,16 @@ def pluck(ind, seqs, default=no_default):
     return (_get(ind, seq, default) for seq in seqs)
 
 
+@overload
+def getter(index: List[T]) -> Callable[[SupportGetItem[T, V]], Tuple[V, ...]]:
+    ...
+
+
+@overload
+def getter(index: T) -> Callable[[SupportGetItem[T, V]], V]:
+    ...
+
+
 def getter(index):
     if isinstance(index, list):
         if len(index) == 1:
@@ -807,7 +876,10 @@ def getter(index):
         else:
             return lambda x: ()
     else:
-        return operator.itemgetter(index)
+        return cast(
+            Callable[[SupportGetItem[T, V]], V],
+            operator.itemgetter(index),
+        )
 
 
 def join(leftkey, leftseq, rightkey, rightseq,

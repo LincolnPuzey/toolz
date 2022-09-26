@@ -23,6 +23,9 @@ setup(name='toolz',
                         else ''),
       zip_safe=False,
       python_requires=">=3.5",
+      install_requires=[
+          "typing_extensions>=4.0.1,<5;python_version<'3.11'",
+      ],
       classifiers=[
           "Development Status :: 5 - Production/Stable",
           "License :: OSI Approved :: BSD License",
